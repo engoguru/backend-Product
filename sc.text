@@ -1,0 +1,346 @@
+// models/Product.js
+
+const mongoose = require('mongoose');
+
+const VariantSchema = new mongoose.Schema({
+  sku: { type: String, required: true },
+  size: { type: String },        // For Apparel & Nutrition (e.g., 2lb or "L")
+  color: { type: String },       // For Apparel
+  flavor: { type: String },      // For Nutrition
+  price: { type: Number, required: true },
+  stock: { type: Number, default: 0 },
+  images: [String]
+});
+
+const ProductSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  brand: String,
+  category: { type: String, enum: ['Nutrition', 'Apparel', 'Equipment'], required: true },
+  description: String,
+  price: { type: Number, required: true },
+  discount: { type: Number, default: 0 },
+  images: [String],
+  tags: [String],
+  rating: { type: Number, default: 0 },
+  reviewsCount: { type: Number, default: 0 },
+  stock: { type: Number, default: 0 },
+  variants: [VariantSchema],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+
+  // Category-specific subdocuments
+  nutritionDetails: {
+    servingSize: String,
+    calories: Number,
+    protein: Number,
+    carbs: Number,
+    fat: Number,
+    ingredients: [String],
+    
+    allergens: [String]
+  },
+
+  apparelDetails: {
+    material: String,
+    gender: { type: String, enum: ['Men', 'Women', 'Unisex'] },
+    fit: String,
+    careInstructions: [String]
+  },
+
+  equipmentDetails: {
+    weight: String,
+    dimensions: String,
+    material: String,
+    usage: String   // e.g., "Indoor", "Outdoor"
+  }
+});
+
+module.exports = mongoose.model('Product', ProductSchema);
+
+
+
+// controllers/productController.js
+import fs from 'fs';
+import xlsx from 'xlsx';
+import csv from 'csvtojson';
+
+import productModel from '../models/productModels.js';
+
+export const bulkUploadFromFile = async (req, res) => {
+  try {
+    const filePath = req.file.path;
+    const ext = req.file.originalname.split('.').pop();
+
+    let jsonData = [];
+
+    if (ext === 'csv') {
+      jsonData = await csv().fromFile(filePath);
+    } else if (ext === 'xlsx') {
+      const workbook = xlsx.readFile(filePath);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      jsonData = xlsx.utils.sheet_to_json(sheet);
+    } else {
+      return res.status(400).json({ message: 'Unsupported file format' });
+    }
+
+    if (!jsonData.length) {
+      return res.status(400).json({ message: 'No data found in file' });
+    }
+
+    // Optional: Map/validate data here before inserting
+    const inserted = await productModel.insertMany(jsonData, { ordered: false });
+
+    fs.unlinkSync(filePath); // Cleanup uploaded file
+
+    return res.status(201).json({
+      status: 'success',
+      message: `${inserted.length} products inserted`,
+      data: inserted
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 'error',
+      message: 'Upload failed',
+      error: error.message
+    });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+Step-by-Step Setup
+
+Create a Meta (Facebook) Developer Account
+
+https://developers.facebook.com/
+
+Create a WhatsApp Business App
+
+Go to Meta for Developers
+
+Create an app with type: Business
+
+Set Up WhatsApp Business in the App
+
+Go to "WhatsApp" > Get Started
+
+Get a test phone number and temporary token
+
+Register a phone number
+
+Use a dedicated number (can’t be active on WhatsApp mobile)
+
+You’ll verify the number with OTP once
+
+Create & Approve Message Templates
+
+For OTP, you need a pre-approved template
+
+Example:
+
+Template Name: otp_login
+Language: English
+Content: Your login OTP is {{1}}. It is valid for 5 minutes.
+
+
+Get a Permanent Access Token
+
+Via Facebook's Graph API / Developer dashboard
+
+Or keep using temporary token for dev
+
+🧱 Sample Code: Send OTP using Meta WhatsApp API
+import axios from 'axios';
+
+const sendOtpWithMeta = async (phoneNumber, otp) => {
+  const payload = {
+    messaging_product: 'whatsapp',
+    to: phoneNumber, // in international format (e.g., 91XXXXXXXXXX)
+    type: 'template',
+    template: {
+      name: 'otp_login', // your approved template name
+      language: { code: 'en_US' },
+      components: [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: otp }
+          ]
+        }
+      ]
+    }
+  };
+
+  try {
+    const response = await axios.post(
+      `https://graph.facebook.com/v18.0/${process.env.WABA_PHONE_NUMBER_ID}/messages`,
+      payload,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.META_WA_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('OTP sent via WhatsApp:', response.data);
+    return true;
+  } catch (err) {
+    console.error('Failed to send WhatsApp message:', err.response?.data || err.message);
+    return false;
+  }
+};
+
+🛡️ .env Variables Example
+META_WA_TOKEN=your_permanent_or_temp_token
+WABA_PHONE_NUMBER_ID=your_whatsapp_business_phone_number_id
+
+🔐 Optional Next Step: Verify OTP
+
+The verification logic on your backend stays the same as in Twilio — you're just changing how the OTP is delivered.
+
+TL;DR – My Suggestion for You:
+
+✅ Use Meta Cloud API for your WhatsApp OTP login if:
+
+You're building for real users
+
+You want lowest cost and production-grade control
+
+🧪 Use Twilio or 360dialog only for:
+
+Quick prototypes or MVPs
+
+Would you like me to:
+
+Provide a full working demo for Meta WhatsApp OTP login?
+
+Help set up Meta app, templates, or access tokens?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const natural = require('natural');
+const stopword = require('stopword');
+
+// Sample product data (replace with your MongoDB data)
+const products = [
+  { id: 1, name: "Running Shoes", description: "Lightweight running shoes for speed" },
+  { id: 2, name: "Protein Powder", description: "High quality whey protein for muscle growth" },
+  { id: 3, name: "Yoga Mat", description: "Comfortable mat for yoga and stretching" },
+];
+
+// Preprocessing function
+function preprocess(text) {
+  let tokens = text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
+  tokens = stopword.removeStopwords(tokens);
+  const stemmer = natural.PorterStemmer;
+  tokens = tokens.map(t => stemmer.stem(t));
+  return tokens;
+}
+
+// Build vocabulary and document term frequencies
+const vocab = new Set();
+const docsTokens = products.map(p => {
+  const tokens = preprocess(p.name + ' ' + p.description);
+  tokens.forEach(t => vocab.add(t));
+  return tokens;
+});
+
+const vocabArray = Array.from(vocab);
+
+// Compute TF for each doc
+function computeTF(tokens) {
+  const tf = {};
+  tokens.forEach(t => {
+    tf[t] = (tf[t] || 0) + 1;
+  });
+  // Normalize
+  const len = tokens.length;
+  for (let t in tf) {
+    tf[t] /= len;
+  }
+  return tf;
+}
+
+// Compute IDF for vocab
+function computeIDF(docsTokens) {
+  const idf = {};
+  const N = docsTokens.length;
+  vocabArray.forEach(word => {
+    let containing = 0;
+    docsTokens.forEach(tokens => {
+      if (tokens.includes(word)) containing++;
+    });
+    idf[word] = Math.log(N / (1 + containing));
+  });
+  return idf;
+}
+
+const docsTF = docsTokens.map(tokens => computeTF(tokens));
+const idf = computeIDF(docsTokens);
+
+// Compute TF-IDF vectors
+function computeTFIDF(tf, idf) {
+  const vec = [];
+  vocabArray.forEach(word => {
+    vec.push((tf[word] || 0) * (idf[word] || 0));
+  });
+  return vec;
+}
+
+const docsVectors = docsTF.map(tf => computeTFIDF(tf, idf));
+
+// Cosine similarity
+function cosineSimilarity(vecA, vecB) {
+  let dot = 0, magA = 0, magB = 0;
+  for(let i=0; i<vecA.length; i++) {
+    dot += vecA[i]*vecB[i];
+    magA += vecA[i]*vecA[i];
+    magB += vecB[i]*vecB[i];
+  }
+  return dot / (Math.sqrt(magA)*Math.sqrt(magB) + 1e-10);
+}
+
+// Search function
+function search(query) {
+  const qTokens = preprocess(query);
+  const qTF = computeTF(qTokens);
+  const qVec = computeTFIDF(qTF, idf);
+  
+  const scores = docsVectors.map((vec, idx) => ({
+    product: products[idx],
+    score: cosineSimilarity(qVec, vec),
+  }));
+
+  scores.sort((a,b) => b.score - a.score);
+
+  return scores.filter(s => s.score > 0).map(s => s.product);
+}
+
+// Example:
+console.log(search("protein for muscles"));
