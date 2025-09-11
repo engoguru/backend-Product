@@ -59,11 +59,18 @@ routes.get('/GetAll',productController.productGetAll)
 
 routes.get('/GetOne/:id',productController.productGetOne);
 
-routes.put('/Update/:id',validate(productSchema),productController.productUpdate);
+routes.put('/Update/:id',validate(productSchema),productUploadImage.array('productImages') ,productController.productUpdate);
 
 routes.delete('/Delete/:id',authenticate,  requireRole('Admin'),productController.productDelete);
 
 routes.post('/updateStock',productController.updateProductStock)
+
+
+
+// seraching
+
+routes.get('/search',productController.searchProduct)
+
 
 
 

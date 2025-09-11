@@ -88,8 +88,8 @@ const productCreate = async (req, res) => {
     });
   }
 };
-                                                
- const productBulkCreate = async (req, res) => {
+
+const productBulkCreate = async (req, res) => {
   let filePath;
   try {
     if (!req.file) {
@@ -124,8 +124,8 @@ const productCreate = async (req, res) => {
       typeof v === "string" && v.trim().startsWith("[")
         ? JSON.parse(v)
         : Array.isArray(v) || typeof v === "object"
-        ? v
-        : JSON.parse(fallback);
+          ? v
+          : JSON.parse(fallback);
 
     jsonData = jsonData.map((row) => ({
       ...row,
@@ -148,7 +148,7 @@ const productCreate = async (req, res) => {
     return res.status(500).json({ message: "Internal server error!" });
   } finally {
     if (filePath) {
-      try { fs.unlinkSync(filePath); } catch {}
+      try { fs.unlinkSync(filePath); } catch { }
     }
   }
 };
@@ -217,18 +217,71 @@ const productGetAll = async (req, res) => {
   }
 };
 
-const productUpdate=async(req,res)=>{
-    try {
-        
-    } catch (error) {
-        
+
+const productUpdate = async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid id" });
     }
-}
+
+    let deleteImages = req.body.public_id;
+
+    // Normalize deleteImages to an array
+    if (deleteImages && !Array.isArray(deleteImages)) {
+      deleteImages = [deleteImages];
+    }
+
+    if (Array.isArray(deleteImages) && deleteImages.length > 0) {
+      for (const public_id of deleteImages) {
+        await cloudinary.uploader.destroy(public_id);
+      }
+    }
+
+    const productImages = [];
+
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const uploadResult = await cloudinary.uploader.upload(file.path, {
+          folder: 'products'
+        });
+
+        productImages.push({
+          url: uploadResult.secure_url,
+          public_id: uploadResult.public_id
+        });
+
+        await fs.unlink(file.path);
+      }
+    }
+
+   
+    // For now, replacing images:
+    const data = await productModel.findByIdAndUpdate(
+      id,
+      {
+        ...req.body,
+        productImages
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      message: "Product updated successfully",
+      data
+    });
+  } catch (error) {
+    console.error("error", error);
+    return res.status(500).json({
+      message: "Internal server error!"
+    });
+  }
+};
 
 const updateProductStock = async (req, res) => {
   console.log("ddhggiuerurghffiue")
   try {
-  console.log("update",req.body)
+    console.log("update", req.body)
 
     if (!req.body || !Array.isArray(req.body.items)) {
       return res.status(400).json({ message: "Invalid body" });
@@ -273,39 +326,118 @@ const updateProductStock = async (req, res) => {
 };
 
 
-const productDelete=async(req,res)=>{
-    try {
-        const id = req.params.id;
-        if(!id || !isValidObjectId(id)){
-            return res.status(400).json({message:"Invalid id"})
-        }
-        const product = await productModel.findByIdAndDelete(id);
-        if(!product){
-            return res.status(400).json({message:"Invalid id"})
-        }
-        return res.status(200).json({message:"Product deleted successfully"})
-    } catch (error) {
-        console.log(error)
-        return res.status(500).json({message:"Internal server error"})
-    }
-}
-
-
-const searchProduct=async(req,res)=>{
+const productDelete = async (req, res) => {
   try {
-    
+    const id = req.params.id;
+    if (!id || !isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid id" })
+    }
+    const product = await productModel.findByIdAndDelete(id);
+    if (!product) {
+      return res.status(400).json({ message: "Invalid id" })
+    }
+    return res.status(200).json({ message: "Product deleted successfully" })
   } catch (error) {
-    
+    console.log(error)
+    return res.status(500).json({ message: "Internal server error" })
   }
 }
+const searchProduct = async (req, res) => {
+  try {
+    const {
+      query,
+      productName,
+      productBrand,
+      productCategory,
+      productTags,
+      servingSize,
+      weight,
+      material,
+      gender,
+      fit
+    } = req.query;
 
+    const pipeline = [];
+
+    const baseFilters = {};
+    if (productName) baseFilters.productName = productName;
+    if (productBrand) baseFilters.productBrand = productBrand;
+    if (productCategory) baseFilters.productCategory = productCategory;
+    if (productTags) baseFilters.productTags = productTags;
+    if (minPrice && maxPrice) {
+      baseFilters.productVarient = {
+        $elemMatch: {
+          price: { $gte: Number(minPrice), $lte: Number(maxPrice) }
+        }
+      };
+    }
+    if (color) {
+      baseFilters.product = {
+        $elemMatch: {
+          color: color
+        }
+      }
+    }
+
+
+
+    if (Object.keys(baseFilters).length > 0) {
+      pipeline.push({ $match: baseFilters });
+    }
+
+    if (query) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { productName: { $regex: query, $options: 'i' } },
+            { productBrand: { $regex: query, $options: 'i' } },
+            { productCategory: { $regex: query, $options: 'i' } },
+            { productTags: { $regex: query, $options: 'i' } }
+          ]
+        }
+      });
+    }
+
+    const discriminatorFilters = {};
+    if (productCategory === 'Nutrition' && servingSize) {
+      discriminatorFilters.servingSize = servingSize;
+    }
+
+    if (productCategory === 'Equipment') {
+      if (weight) discriminatorFilters.weight = weight;
+      if (material) discriminatorFilters.material = material;
+    }
+
+    if (productCategory === 'Apparel') {
+      if (gender) discriminatorFilters.gender = gender;
+      if (fit) discriminatorFilters.fit = fit;
+    }
+
+    if (Object.keys(discriminatorFilters).length > 0) {
+      pipeline.push({ $match: discriminatorFilters });
+    }
+
+    //   empty pipeline
+    if (pipeline.length === 0) {
+      return res.status(400).json({ message: "No valid filters provided." });
+    }
+
+    const products = await productModel.aggregate(pipeline);
+   return res.status(200).json({ products });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
 export default {
-    productCreate,
-    productBulkCreate,
-    productGetAll,
-    productGetOne,
-    productDelete,
-    productUpdate,
-    updateProductStock
+  productCreate,
+  productBulkCreate,
+  productGetAll,
+  productGetOne,
+  productDelete,
+  productUpdate,
+  updateProductStock,
+  searchProduct
 }
