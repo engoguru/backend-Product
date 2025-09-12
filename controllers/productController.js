@@ -189,8 +189,8 @@ const productGetOne = async (req, res) => {
 
 const productGetAll = async (req, res) => {
   try {
-    const page = parseInt(req.page) || 1;
-    const itemsPerPage = parseInt(req.itemsPerPage) || 50;
+    const page = parseInt(req.query.page) || 1;
+    const itemsPerPage = parseInt(req.query.itemsPerPage) || 10;
     const skip = itemsPerPage * (page - 1);
 
     const [data, totalProducts] = await Promise.all([
@@ -224,51 +224,47 @@ const productUpdate = async (req, res) => {
     if (!isValidObjectId(id)) {
       return res.status(400).json({ message: "Invalid id" });
     }
-
-    let deleteImages = req.body.public_id;
-
-    // Normalize deleteImages to an array
-    if (deleteImages && !Array.isArray(deleteImages)) {
-      deleteImages = [deleteImages];
+    
+    const productToUpdate = await productModel.findById(id);
+    if (!productToUpdate) {
+      return res.status(404).json({ message: "Product not found" });
     }
 
-    if (Array.isArray(deleteImages) && deleteImages.length > 0) {
-      for (const public_id of deleteImages) {
-        await cloudinary.uploader.destroy(public_id);
+    const updateData = { ...req.body };
+
+    // Parse JSON fields if sent as strings
+    const jsonFields = ['productVarient', 'apparelDetails', 'equipmentDetails', 'nutritionDetails'];
+    for (const field of jsonFields) {
+      if (typeof updateData[field] === 'string') {
+        try {
+          updateData[field] = JSON.parse(updateData[field]);
+        } catch (e) {
+          return res.status(400).json({ message: `Invalid JSON in field: ${field}` });
+        }
       }
     }
 
-    const productImages = [];
-
+    // Handle new image uploads
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const uploadResult = await cloudinary.uploader.upload(file.path, {
           folder: 'products'
         });
-
-        productImages.push({
+        productToUpdate.productImages.push({
           url: uploadResult.secure_url,
           public_id: uploadResult.public_id
         });
-
         await fs.unlink(file.path);
       }
     }
 
-   
-    // For now, replacing images:
-    const data = await productModel.findByIdAndUpdate(
-      id,
-      {
-        ...req.body,
-        productImages
-      },
-      { new: true }
-    );
+    // Assign updated data and save
+    Object.assign(productToUpdate, updateData);
+    const updatedProduct = await productToUpdate.save();
 
     res.status(200).json({
       message: "Product updated successfully",
-      data
+      product: updatedProduct
     });
   } catch (error) {
     console.error("error", error);
