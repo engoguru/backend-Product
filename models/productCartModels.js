@@ -19,21 +19,18 @@ const cartSchema = new mongoose.Schema({
         type: String,
         required: true
       },
-      price: {
+   
+      color: {
         type: Number,
         required: true
       },
-      color:{
-         type: Number,
-        required: true
+      flavor: {
+        type: String,
+        trim: true
       },
-     flavor: {
-     type: String,
-    trim: true
-    },
     }
   ],
-},{timestamps:true});
+}, { timestamps: true });
 
-const cartModel=mongoose.model("CartData",cartSchema);
+const cartModel = mongoose.model("CartData", cartSchema);
 export default cartModel;

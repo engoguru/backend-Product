@@ -71,7 +71,9 @@ routes.post('/updateStock',productController.updateProductStock)
 
 routes.get('/search',productController.searchProduct)
 
+// get bulk user eppecific 
 
+routes.post('/getBulk_userSpecific',productController.getbulk_UserSpecific)
 
 
 

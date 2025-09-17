@@ -1,8 +1,10 @@
 //   use product feedback routes for routing
 
+import { isValidObjectId } from "mongoose";
 import cartModel from "../models/productCartModels.js";
+import productModel from "../models/productModels.js";
 
-export const updateCart = async (req, res) => {
+const updateCart = async (req, res) => {
   try {
     const { userId, items } = req.body;
 
@@ -13,13 +15,13 @@ export const updateCart = async (req, res) => {
 
     // Validate each item
     for (const item of items) {
-      const { productId, size, price, color, inv } = item;
+      const { productId, size, price, color, quantity } = item;
       if (
         !productId ||
         !size ||
         price === undefined ||
         color === undefined ||
-        inv === undefined
+        quantity === undefined
       ) {
         return res.status(400).json({ error: 'Each item must have productId, size, price, color, and inv.' });
       }
@@ -34,9 +36,8 @@ export const updateCart = async (req, res) => {
         .filter(item => item.inv > 0)
         .map(item => ({
           productId: item.productId,
-          quantity: item.inv,
+          quantity: item.quantity,
           size: item.size,
-          price: item.price,
           color: item.color,
           flavor: item.flavor?.trim() || ''
         }));
@@ -56,7 +57,7 @@ export const updateCart = async (req, res) => {
 
     // Existing cart: update or add items
     for (const incomingItem of items) {
-      const { productId, size, price, color, flavor, inv } = incomingItem;
+      const { productId, size, price, color, flavor, quantity } = incomingItem;
       const trimmedFlavor = flavor?.trim() || '';
 
       const index = cart.items.findIndex(
@@ -69,17 +70,17 @@ export const updateCart = async (req, res) => {
 
       if (index !== -1) {
         // Item exists → update quantity
-        cart.items[index].quantity += inv;
+        cart.items[index].quantity += quantity;
 
         // Remove if quantity <= 0
         if (cart.items[index].quantity <= 0) {
           cart.items.splice(index, 1);
         }
-      } else if (inv > 0) {
+      } else if (quantity > 0) {
         // New item → add
         cart.items.push({
           productId,
-          quantity: inv,
+          quantity: quantity,
           size,
           price,
           color,
@@ -102,8 +103,45 @@ export const updateCart = async (req, res) => {
     console.error('Error updating cart:', error);
     res.status(500).json({ error: 'Server error updating cart.' });
   }
-};
+}
 
+
+const getUserCart = async (req, res) => {
+  try {
+       const { id } = req.params;
+
+    if (!id || !isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid userId" });
+    }
+
+    const cart = await cartModel.findOne({ userId: id });
+    if (!cart) {
+      return res.status(404).json({ error: "Cart not found" })
+    }
+// find all productIds from cart items  
+    const productIds = cart.items.map(item => item.productId);
+// find products details from product service 
+    const products = await productModel.find({ _id: { $in: productIds } });
+
+    // again merge product details with cart items
+    const cartWithProductDetails = cart.items.map(item => {
+      const product = products.find(p => p._id.toString() === item.productId);
+      return {
+        ...item.toObject(),
+        productDetails: product || null
+      };
+    });
+
+    return res.status(200).json({ cart: cartWithProductDetails });
+  } catch (error) {
+    console.error('Error fetching cart:', error);
+    res.status(500).json({ error: 'Server error fetching cart.' });
+  }
+}
+export default {
+  updateCart,
+  getUserCart 
+}
 
 
 

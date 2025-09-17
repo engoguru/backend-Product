@@ -9,7 +9,7 @@ import productModel from "../models/productModels.js";
 import { isValidObjectId } from "mongoose";
 import { v2 as cloudinary } from 'cloudinary';
 
-
+import mongoose from "mongoose";
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
   api_key: process.env.API_KEY,
@@ -342,7 +342,99 @@ const productDelete = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" })
   }
 }
+// const searchProduct = async (req, res) => {
+//   try {
+//     const {
+//       query,
+//       productName,
+//       productBrand,
+//       productCategory,
+//       productTags,
+//       servingSize,
+//       weight,
+//       material,
+//       gender,
+//       fit
+//     } = req.query;
+
+//     const pipeline = [];
+
+//     const baseFilters = {};
+//     if (productName) baseFilters.productName = productName;
+//     if (productBrand) baseFilters.productBrand = productBrand;
+//     if (productCategory) baseFilters.productCategory = productCategory;
+//     if (productTags) baseFilters.productTags = productTags;
+//     if (minPrice && maxPrice) {
+//       baseFilters.productVarient = {
+//         $elemMatch: {
+//           price: { $gte: Number(minPrice), $lte: Number(maxPrice) }
+//         }
+//       };
+//     }
+//     if (color) {
+//       baseFilters.product = {
+//         $elemMatch: {
+//           color: color
+//         }
+//       }
+//     }
+
+
+
+//     if (Object.keys(baseFilters).length > 0) {
+//       pipeline.push({ $match: baseFilters });
+//     }
+
+//     if (query) {
+//       pipeline.push({
+//         $match: {
+//           $or: [
+//             { productName: { $regex: query, $options: 'i' } },
+//             { productBrand: { $regex: query, $options: 'i' } },
+//             { productCategory: { $regex: query, $options: 'i' } },
+//             { productTags: { $regex: query, $options: 'i' } }
+//           ]
+//         }
+//       });
+//     }
+
+//     const discriminatorFilters = {};
+//     if (productCategory === 'Nutrition' && servingSize) {
+//       discriminatorFilters.servingSize = servingSize;
+//     }
+
+//     if (productCategory === 'Equipment') {
+//       if (weight) discriminatorFilters.weight = weight;
+//       if (material) discriminatorFilters.material = material;
+//     }
+
+//     if (productCategory === 'Apparel') {
+//       if (gender) discriminatorFilters.gender = gender;
+//       if (fit) discriminatorFilters.fit = fit;
+//     }
+
+//     if (Object.keys(discriminatorFilters).length > 0) {
+//       pipeline.push({ $match: discriminatorFilters });
+//     }
+
+//     //   empty pipeline
+//     if (pipeline.length === 0) {
+//       return res.status(400).json({ message: "No valid filters provided." });
+//     }
+
+//     const products = await productModel.aggregate(pipeline);
+//    return res.status(200).json({ products });
+
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({ message: 'Internal server error' });
+//   }
+// };
+
+
+
 const searchProduct = async (req, res) => {
+  console.log("sd")
   try {
     const {
       query,
@@ -354,16 +446,23 @@ const searchProduct = async (req, res) => {
       weight,
       material,
       gender,
-      fit
+      fit,
+      color,
+      minPrice,
+      maxPrice,
+      page = 1,
+      limit = 10,
     } = req.query;
 
     const pipeline = [];
 
+    // Base Filters
     const baseFilters = {};
     if (productName) baseFilters.productName = productName;
     if (productBrand) baseFilters.productBrand = productBrand;
     if (productCategory) baseFilters.productCategory = productCategory;
     if (productTags) baseFilters.productTags = productTags;
+
     if (minPrice && maxPrice) {
       baseFilters.productVarient = {
         $elemMatch: {
@@ -371,20 +470,20 @@ const searchProduct = async (req, res) => {
         }
       };
     }
+
     if (color) {
       baseFilters.product = {
         $elemMatch: {
           color: color
         }
-      }
+      };
     }
-
-
 
     if (Object.keys(baseFilters).length > 0) {
       pipeline.push({ $match: baseFilters });
     }
 
+    // Search Query
     if (query) {
       pipeline.push({
         $match: {
@@ -398,6 +497,7 @@ const searchProduct = async (req, res) => {
       });
     }
 
+    // Discriminator Filters
     const discriminatorFilters = {};
     if (productCategory === 'Nutrition' && servingSize) {
       discriminatorFilters.servingSize = servingSize;
@@ -417,19 +517,76 @@ const searchProduct = async (req, res) => {
       pipeline.push({ $match: discriminatorFilters });
     }
 
-    //   empty pipeline
-    if (pipeline.length === 0) {
-      return res.status(400).json({ message: "No valid filters provided." });
+    // Pagination setup
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageLimit = parseInt(limit);
+
+    pipeline.push(
+      {
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: pageLimit }
+          ],
+          totalCount: [
+            { $count: "count" }
+          ]
+        }
+      }
+    );
+
+    // If pipeline is empty, match all
+    if (pipeline.length === 1) {
+      pipeline.unshift({ $match: {} }); // match all products
     }
 
-    const products = await productModel.aggregate(pipeline);
-   return res.status(200).json({ products });
+    const result = await productModel.aggregate(pipeline);
+
+    const products = result[0]?.data || [];
+    const totalCount = result[0]?.totalCount[0]?.count || 0;
+
+    return res.status(200).json({
+      products,
+      totalCount,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalCount / pageLimit),
+    });
 
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+
+
+const getbulk_UserSpecific = async (req, res) => {
+    try {
+        const { ids } = req.body;
+
+        // Validate input
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "Invalid or missing 'ids' array" });
+        }
+
+        // Filter out invalid ObjectIds
+        const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
+
+        if (validIds.length === 0) {
+            return res.status(400).json({ message: "No valid product IDs provided" });
+        }
+
+        // Fetch products in bulk
+        const products = await productModel.find({ _id: { $in: validIds } });
+
+        return res.status(200).json({ products });
+
+    } catch (error) {
+        console.error("Bulk fetch error:", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
 
 export default {
   productCreate,
@@ -439,5 +596,6 @@ export default {
   productDelete,
   productUpdate,
   updateProductStock,
-  searchProduct
+  searchProduct,
+  getbulk_UserSpecific
 }
