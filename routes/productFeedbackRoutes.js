@@ -17,7 +17,7 @@ routes.get('/getfeedback/:productId', productFeedbackController.getByProductFeed
 // Add to cart routes
 
 routes.post("/cart",authenticate,productCartController.updateCart);
-routes.get("/cart/:id",productCartController.getUserCart);
+routes.get("/cart",authenticate,productCartController.getUserCart);
 
 
 export  default routes;

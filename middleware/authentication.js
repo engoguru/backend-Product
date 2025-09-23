@@ -32,7 +32,7 @@ export function authenticate(req, res, next) {
       whatsApp_Number: payload.whatsApp_Number || null,
       role: payload.role || "user"
     };
-console.log(req.user,"dgfisud")
+
     return next();
   } catch (e) {
     console.error("Authentication middleware error:", e);

@@ -427,10 +427,8 @@ const productDelete = async (req, res) => {
 //   }
 // };
 
-
-
 const searchProduct = async (req, res) => {
-  console.log("sd")
+  console.log('Sort param:', req.query);
   try {
     const {
       query,
@@ -446,6 +444,7 @@ const searchProduct = async (req, res) => {
       color,
       minPrice,
       maxPrice,
+      sort,
       page = 1,
       limit = 10,
     } = req.query;
@@ -454,7 +453,9 @@ const searchProduct = async (req, res) => {
 
     // Base Filters
     const baseFilters = {};
-    if (productName) baseFilters.productName = productName;
+    if (productName) {
+  baseFilters.productName = { $regex: productName, $options: 'i' }; // 'i' for case-insensitive
+}
     if (productBrand) baseFilters.productBrand = productBrand;
     if (productCategory) baseFilters.productCategory = productCategory;
     if (productTags) baseFilters.productTags = productTags;
@@ -467,13 +468,21 @@ const searchProduct = async (req, res) => {
       };
     }
 
-    if (color) {
-      baseFilters.product = {
-        $elemMatch: {
-          color: color
-        }
-      };
-    }
+
+  // Normalize color input to array
+  let colorFilter = query['color[]'] || query?.color;
+  if (colorFilter && !Array.isArray(colorFilter)) {
+    colorFilter = [colorFilter];
+
+  }
+
+  if (colorFilter && colorFilter.length > 0) {
+    baseFilters.productVarient = {
+      $elemMatch: {
+        color: { $in: colorFilter }
+      }
+    };
+  }
 
     if (Object.keys(baseFilters).length > 0) {
       pipeline.push({ $match: baseFilters });
@@ -512,6 +521,13 @@ const searchProduct = async (req, res) => {
     if (Object.keys(discriminatorFilters).length > 0) {
       pipeline.push({ $match: discriminatorFilters });
     }
+
+    //  Proper sorting stage
+if (sort === "high-to-low") {
+  pipeline.push({ $sort: { "productVarient.price": -1 } });
+} else if (sort === "low-to-high") {
+  pipeline.push({ $sort: { "productVarient.price": 1 } });
+}
 
     // Pagination setup
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -584,6 +600,9 @@ const getbulk_UserSpecific = async (req, res) => {
 };
 
 
+
+
+
 export default {
   productCreate,
   productBulkCreate,
@@ -593,5 +612,5 @@ export default {
   productUpdate,
   updateProductStock,
   searchProduct,
-  getbulk_UserSpecific
+  getbulk_UserSpecific,
 }
