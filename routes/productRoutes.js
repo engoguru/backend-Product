@@ -74,7 +74,10 @@ routes.get('/search',productController.searchProduct)
 
 // get bulk user eppecific 
 
-routes.post('/getBulk_userSpecific',productController.getbulk_UserSpecific)
+routes.post('/getBulk_userSpecific',productController.getbulk_UserSpecific);
+
+
+routes.get('/relevantProducts/:category',productController.getRelevantProducts);
 
 
 

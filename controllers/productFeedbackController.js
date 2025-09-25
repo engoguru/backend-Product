@@ -14,12 +14,13 @@ cloudinary.config({
 
 const create = async (req, res) => {
   try {
-    const { userId, productId, rating, comment } = req.body;
+    const { productId, rating, comment } = req.body;
+    const userId = req.user?.id; // Assuming user ID is set in req.user by authentication middleware
 
     if (!userId || !productId || !rating) {
       return res.status(400).json({ message: 'userId, productId, and rating are required.' });
     }
-
+console.log(req.files,"fgjh");
     // Upload feedback images to Cloudinary
     const feedbackImage = [];
     if (req.files && req.files.length > 0) {

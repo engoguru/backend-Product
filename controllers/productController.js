@@ -275,51 +275,51 @@ const productUpdate = async (req, res) => {
 };
 
 const updateProductStock = async (req, res) => {
-  console.log("ddhggiuerurghffiue")
   try {
-    console.log("update", req.body)
+    const items = req.body.items;
 
-    if (!req.body || !Array.isArray(req.body.items)) {
-      return res.status(400).json({ message: "Invalid body" });
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: "Invalid or empty items array" });
     }
 
-    for (let key of req.body.items) {
-      let { productId: id, quantity, size } = key;
+    const bulkOperations = [];
 
-      if (!id || !quantity || !size) {
-        return res.status(400).json({ message: "Invalid item data" });
+    for (let item of items) {
+      const { productId, quantity, size } = item;
+
+      if (!productId || !quantity || !size) {
+        return res.status(400).json({ message: "Missing required fields in one or more items" });
       }
 
-      let product = await productModel.findById(id);
-
-      if (!product) {
-        return res.status(400).json({ message: `Invalid product ID: ${id}` });
-      }
-
-      // Find the variant that matches the size
-      let variant = product.productVarient.find(v => v.size === size);
-
-      if (!variant) {
-        return res.status(400).json({ message: `Size '${size}' not found for product ID: ${id}` });
-      }
-
-      // Check if there's enough stock
-      if (variant.stock < quantity) {
-        return res.status(400).json({ message: `Insufficient stock for size '${size}' of product ID: ${id}` });
-      }
-
-      // Update stock
-      variant.stock -= quantity;
-
-      await product.save();
+      // Build bulk operation to decrement stock
+      bulkOperations.push({
+        updateOne: {
+          filter: {
+            _id: productId,
+            'productVarient.size': size
+          },
+          update: {
+            $inc: {
+              'productVarient.$.stock': -quantity
+            }
+          }
+        }
+      });
     }
 
-    return res.status(200).json({ message: "Stock updated successfully" });
+    const result = await productModel.bulkWrite(bulkOperations);
+
+    return res.status(200).json({
+      message: "Stock updated successfully",
+      modifiedCount: result.modifiedCount
+    });
+
   } catch (error) {
-    console.log(error);
+    console.error("Stock update error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 
 const productDelete = async (req, res) => {
@@ -601,11 +601,28 @@ const getbulk_UserSpecific = async (req, res) => {
 
 
 
+const getRelevantProducts = async (req, res) => {
+        try {
+          const { category } = req.params;
+    if (!category || !['Apparel', 'Equipment', 'Nutrition'].includes(category)) {
+      return res.status(400).json({ message: "Invalid category" });
+    }
+    // Fetch products from the same category, sorted by creation date (newest first)
+    const relevantProducts = await productModel.find({
+      productCategory: category,
+    }).sort({ createdAt: -1 }).limit(4);
+    return res.status(200).json({ relevantProducts });
+  } catch (error) {
+    console.error("Error fetching relevant products:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 export default {
   productCreate,
   productBulkCreate,
+  getRelevantProducts,
   productGetAll,
   productGetOne,
   productDelete,
