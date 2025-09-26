@@ -121,7 +121,6 @@ const updateCart = async (req, res) => {
 
 
 
-
 // const getUserCart = async (req, res) => {
 //   try {
 //        const { id } = req.params;
@@ -163,7 +162,7 @@ const getUserCart = async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized: user not authenticated.' });
     }
 
-    const cart = await cartModel.findOne({ userId });
+    const cart = await cartModel.findOne({ userId }).sort({ createdAt: -1 });
 
     if (!cart || cart.items.length === 0) {
       return res.status(404).json({ message: 'No items found in cart.' });
