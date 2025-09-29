@@ -10,6 +10,9 @@ const variantSchema = Joi.object({
   price: Joi.number().required().messages({
     'any.required': 'Price is required'
   }),
+  // originalPrice: Joi.number().required().messages({
+  //   'any.required': 'Original Price is required'
+  // }),
   stock: Joi.number().optional().default(0),
 
 });
