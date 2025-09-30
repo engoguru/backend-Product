@@ -428,13 +428,14 @@ const productDelete = async (req, res) => {
 // };
 
 const searchProduct = async (req, res) => {
-  console.log('Sort param:', req.query);
+  // console.log('Sort param:', req.query);
   try {
     const {
       query,
       productName,
       productBrand,
       productCategory,
+      subCategory,
       productTags,
       servingSize,
       weight,
@@ -457,6 +458,7 @@ const searchProduct = async (req, res) => {
   baseFilters.productName = { $regex: productName, $options: 'i' }; // 'i' for case-insensitive
 }
     if (productBrand) baseFilters.productBrand = productBrand;
+    if (subCategory) baseFilters.subCategory = subCategory;
     if (productCategory) baseFilters.productCategory = productCategory;
     if (productTags) baseFilters.productTags = productTags;
 
@@ -546,7 +548,7 @@ if (sort === "high-to-low") {
         }
       }
     );
-
+// console.log(baseFilters,"baseFilters")
     // If pipeline is empty, match all
     if (pipeline.length === 1) {
       pipeline.unshift({ $match: {} }); // match all products

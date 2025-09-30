@@ -17,7 +17,8 @@ const EquipmentSchema = new mongoose.Schema({
     usage: {
         type: String,
         trim: true
-    }
+    },
+ subCategory: { type: String, trim: true },
 });
 
 const equipmentModel = productModel.discriminator("Equipment", EquipmentSchema);

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import productModel from "./productModels.js";
 
 const ApparelSchema = new mongoose.Schema({
+  subCategory: { type: String, trim: true },
   material: { type: String, trim: true },
   gender: { type: String, enum: ['Men', 'Women', 'Unisex'] },
   fit: { type: String, trim: true },

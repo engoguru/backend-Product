@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import productModel from "./productModels.js"; // ✅ Add `.js` extension
 
 const NutritionSchema = new mongoose.Schema({
+subCategory: { type: String, trim: true },
     servingSize: {
         type: String,
         trim: true

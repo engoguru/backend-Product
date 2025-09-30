@@ -29,7 +29,7 @@ const updateCart = async (req, res) => {
     }
 
     const { productId, size, price, color, quantity } = item;
-
+console.log(item,"items")
     if (
       !productId ||
       !size ||
