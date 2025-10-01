@@ -29,13 +29,13 @@ const updateCart = async (req, res) => {
     }
 
     const { productId, size, price, color, quantity } = item;
-console.log(item,"items")
+    console.log(item, "items")
     if (
       !productId ||
       !size ||
       price === undefined ||
       quantity === undefined
-     
+
     ) {
       return res.status(400).json({ message: 'Item must have productId, size, price, quantity, and color (array).' });
     }
@@ -69,7 +69,9 @@ console.log(item,"items")
     }
 
     // Cart exists — try to update existing item
-    const trimmedFlavor = item.flavor?.trim() || '';
+    const trimmedFlavor = Array.isArray(item.flavor)
+      ? item.flavor[0]?.trim() || ''
+      : item.flavor?.trim() || '';
     const sortedColor = [...color].sort();
 
     const index = cart.items.findIndex(existingItem =>
@@ -179,7 +181,7 @@ const getUserCart = async (req, res) => {
 
 export default {
   updateCart,
-  getUserCart 
+  getUserCart
 }
 
 
