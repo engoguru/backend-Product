@@ -29,7 +29,7 @@ const updateCart = async (req, res) => {
     }
 
     const { productId, size, price, color, quantity } = item;
-console.log(item,"items")
+// console.log(item,"item")
     if (
       !productId ||
       !size ||
@@ -57,7 +57,9 @@ console.log(item,"items")
           size,
           price,
           color: [...color].sort(),
-          flavor: item.flavor?.trim() || '',
+          flavor: Array.isArray(item.flavor)
+  ? item.flavor[0]?.trim() || ''
+  : item.flavor?.trim() ,
           category: item.category?.trim() || '',
           discount: item.discount || 0,
           productName: item.productName?.trim() || ''
@@ -69,7 +71,9 @@ console.log(item,"items")
     }
 
     // Cart exists — try to update existing item
-    const trimmedFlavor = item.flavor?.trim() || '';
+const trimmedFlavor = Array.isArray(item.flavor)
+  ? item.flavor[0]?.trim() || ''
+  : item.flavor?.trim() || '';
     const sortedColor = [...color].sort();
 
     const index = cart.items.findIndex(existingItem =>
@@ -174,6 +178,7 @@ const getUserCart = async (req, res) => {
     res.status(500).json({ error: 'Server error fetching cart.' });
   }
 };
+
 
 
 
