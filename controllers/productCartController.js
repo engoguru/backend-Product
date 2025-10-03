@@ -57,7 +57,9 @@ const updateCart = async (req, res) => {
           size,
           price,
           color: [...color].sort(),
-          flavor: item.flavor?.trim() || '',
+          flavor: Array.isArray(item.flavor)
+            ? item.flavor[0]?.trim() || ''
+            : item.flavor?.trim(),
           category: item.category?.trim() || '',
           discount: item.discount || 0,
           productName: item.productName?.trim() || ''
@@ -176,6 +178,7 @@ const getUserCart = async (req, res) => {
     res.status(500).json({ error: 'Server error fetching cart.' });
   }
 };
+
 
 
 
