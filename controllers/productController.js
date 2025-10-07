@@ -142,6 +142,8 @@ const productBulkCreate = async (req, res) => {
       productImages: toJSON(row.productImages ?? "[]"),
       productVarient: toJSON(row.productVarient ?? "[]"),
       careInstructions: toJSON(row.careInstructions ?? "[]"),
+      ingredients: toJSON(row.ingredients ?? "[]"),
+      allergens: toJSON(row.allergens ?? "[]"),
     }));
 
     // Insert
