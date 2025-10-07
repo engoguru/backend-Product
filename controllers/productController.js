@@ -54,25 +54,34 @@ const productCreate = async (req, res) => {
       }
     }
 
+    // Prepare data for the new product
+    const productPayload = {
+      ...req.body,
+      productImages,
+    };
+
     // Select the appropriate model based on productCategory
     switch (productCategory) {
       case 'Apparel':
         Model = apparelModel;
+        // Spread the details into the main payload to match the schema
+        Object.assign(productPayload, req.body.apparelDetails);
         break;
       case 'Equipment':
         Model = equipmentModel;
+        // Spread the details into the main payload
+        Object.assign(productPayload, req.body.equipmentDetails);
         break;
       case 'Nutrition':
         Model = nutritionModel;
+        // Spread the details into the main payload
+        Object.assign(productPayload, req.body.nutritionDetails);
         break;
       default:
         return res.status(400).json({ message: 'Invalid product category' });
     }
 
-    const newProduct = new Model({
-      ...req.body,
-      productImages
-    });
+    const newProduct = new Model(productPayload);
 
     await newProduct.save();
 
@@ -133,6 +142,8 @@ const productBulkCreate = async (req, res) => {
       productImages: toJSON(row.productImages ?? "[]"),
       productVarient: toJSON(row.productVarient ?? "[]"),
       careInstructions: toJSON(row.careInstructions ?? "[]"),
+      ingredients: toJSON(row.ingredients ?? "[]"),
+      allergens: toJSON(row.allergens ?? "[]"),
     }));
 
     // Insert
@@ -242,6 +253,42 @@ const productUpdate = async (req, res) => {
           return res.status(400).json({ message: `Invalid JSON in field: ${field}` });
         }
       }
+    }
+
+    // Flatten category-specific details from body for update
+    if (updateData.productCategory) {
+      switch (updateData.productCategory) {
+        case 'Apparel':
+          if (updateData.apparelDetails) Object.assign(updateData, updateData.apparelDetails);
+          break;
+        case 'Equipment':
+          if (updateData.equipmentDetails) Object.assign(updateData, updateData.equipmentDetails);
+          break;
+        case 'Nutrition':
+          if (updateData.nutritionDetails) Object.assign(updateData, updateData.nutritionDetails);
+          break;
+      }
+    }
+
+    // Handle existing images (removal or reordering)
+    if (updateData.existingImages) {
+      const existingImages = JSON.parse(updateData.existingImages);
+      const publicIdsToKeep = new Set(existingImages.map(img => img.public_id));
+
+      // Find images to delete from Cloudinary
+      const imagesToDelete = productToUpdate.productImages.filter(
+        img => !publicIdsToKeep.has(img.public_id)
+      );
+
+      if (imagesToDelete.length > 0) {
+        const publicIdsToDelete = imagesToDelete.map(img => img.public_id);
+        // Asynchronously delete from Cloudinary
+        cloudinary.api.delete_resources(publicIdsToDelete);
+      }
+
+      // Update the product's image array to the new list
+      productToUpdate.productImages = existingImages;
+      delete updateData.existingImages; // Don't try to assign it again later
     }
 
     // Handle new image uploads
@@ -621,6 +668,41 @@ const getRelevantProducts = async (req, res) => {
 };
 
 
+// In your product controller file
+const getStats = async (req, res) => {
+  try {
+    // Assuming you have a productModel imported
+    const stats = await productModel.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
+          products: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: "$_id.year",
+          months: {
+            $push: {
+              month: "$_id.month",
+              products: "$products",
+            },
+          },
+        },
+      },
+      { $sort: { _id: 1 } } // Sort by year
+    ]);
+    res.status(200).json(stats);
+  } catch (error) {
+    console.error("Error fetching product stats:", error);
+    res.status(500).json({ message: "Error fetching product stats", error });
+  }
+};
+
+
 export default {
   productCreate,
   productBulkCreate,
@@ -632,4 +714,5 @@ export default {
   updateProductStock,
   searchProduct,
   getbulk_UserSpecific,
+  getStats,
 }
