@@ -79,6 +79,9 @@ routes.post('/getBulk_userSpecific',productController.getbulk_UserSpecific);
 
 routes.get('/relevantProducts/:category',productController.getRelevantProducts);
 
+// stats
+routes.get('/stats', productController.getStats);
+
 
 
 
