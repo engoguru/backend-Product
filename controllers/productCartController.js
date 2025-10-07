@@ -5,7 +5,125 @@ import cartModel from "../models/productCartModels.js";
 import productModel from "../models/productModels.js";
 
 
-// Helper to compare arrays (e.g., color arrays)
+// // Helper to compare arrays (e.g., color arrays)
+// function arraysEqual(a, b) {
+//   if (!Array.isArray(a) || !Array.isArray(b)) return false;
+//   if (a.length !== b.length) return false;
+
+//   const sortedA = [...a].sort();
+//   const sortedB = [...b].sort();
+
+//   return sortedA.every((val, index) => val === sortedB[index]);
+// }
+
+// const updateCart = async (req, res) => {
+//   try {
+//     const userId = req.user?.id;
+//     const item = req.body;
+
+//     console.log(item, userId, "itemmmmmmmmmmmmmm");
+//     // console.log("Incoming cart update:", { userId, item });
+
+//     // Validate userId and item
+//     if (!userId || !item || typeof item !== 'object') {
+//       return res.status(400).json({ message: 'User and valid item are required.' });
+//     }
+
+//     const { productId, size, price, color, quantity } = item;
+//     // console.log(item,"item")
+//     if (
+//       !productId ||
+//       !size ||
+//       price === undefined ||
+//       quantity === undefined
+
+//     ) {
+//       return res.status(400).json({ message: 'Item must have productId, size, price, quantity, and color (array).' });
+//     }
+
+//     // Find cart by userId
+//     let cart = await cartModel.findOne({ userId });
+
+//     if (!cart) {
+//       // Create new cart with valid item (quantity > 0)
+//       if (quantity <= 0) {
+//         return res.status(400).json({ error: 'Cannot add item with non-positive quantity.' });
+//       }
+
+//       cart = new cartModel({
+//         userId,
+//         items: [{
+//           productId,
+//           quantity,
+//           size,
+//           price,
+//           color: [...color].sort(),
+//           flavor: Array.isArray(item.flavor)
+//             ? item.flavor[0]?.trim() || ''
+//             : item.flavor?.trim(),
+//           category: item.category?.trim() || '',
+//           discount: item.discount || 0,
+//           productName: item.productName?.trim() || ''
+//         }]
+//       });
+
+//       await cart.save();
+//       return res.status(201).json({ message: 'New cart created with item.', cart });
+//     }
+
+//     // Cart exists — try to update existing item
+//     const trimmedFlavor = Array.isArray(item.flavor)
+//       ? item.flavor[0]?.trim() || ''
+//       : item.flavor?.trim() || '';
+//     const sortedColor = [...color].sort();
+
+//     const index = cart.items.findIndex(existingItem =>
+//       existingItem.productId === productId &&
+//       existingItem.size === size &&
+//       arraysEqual(existingItem.color, sortedColor) &&
+//       (existingItem.flavor?.trim() || '') === trimmedFlavor
+//     );
+
+//     if (index !== -1) {
+//       // Item exists — update quantity and price
+//       cart.items[index].quantity += quantity;
+//       cart.items[index].price = price;
+
+//       if (cart.items[index].quantity <= 0) {
+//         cart.items.splice(index, 1); // Remove item
+//       }
+//     } else if (quantity > 0) {
+//       // New item — add to cart
+//       cart.items.push({
+//         productId,
+//         quantity,
+//         size,
+//         price,
+//         color: sortedColor,
+//         flavor: trimmedFlavor,
+//         category: item.category?.trim() || '',
+//         discount: item.discount || 0,
+//         productName: item.productName?.trim() || ''
+//       });
+//     }
+
+//     // Delete cart if now empty
+//     if (cart.items.length === 0) {
+//       await cartModel.deleteOne({ userId });
+//       return res.status(200).json({ message: 'Cart was empty and has been deleted.' });
+//     }
+
+//     await cart.save();
+//     return res.status(200).json({ message: 'Cart updated successfully.', cart });
+
+//   } catch (error) {
+//     console.error('Error updating cart:', error);
+//     return res.status(500).json({ error: 'Server error updating cart.' });
+//   }
+// };
+
+import mongoose from "mongoose";
+
 function arraysEqual(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
   if (a.length !== b.length) return false;
@@ -16,35 +134,62 @@ function arraysEqual(a, b) {
   return sortedA.every((val, index) => val === sortedB[index]);
 }
 
+function getProductIdString(productId) {
+  if (!productId) return '';
+
+  if (typeof productId === 'string') {
+    return productId;
+  }
+
+  if (typeof productId === 'object' && '_id' in productId) {
+    return productId._id.toString();
+  }
+
+  if (typeof productId === 'object' && productId.toString) {
+    return productId.toString();
+  }
+
+  return '';
+}
+
 const updateCart = async (req, res) => {
   try {
     const userId = req.user?.id;
     const item = req.body;
+    // console.log(item, userId, "itemmmmmmmmmmmmmm");
+    console.log(item,"jggi4jh6y")
 
-    // console.log("Incoming cart update:", { userId, item });
-
-    // Validate userId and item
     if (!userId || !item || typeof item !== 'object') {
       return res.status(400).json({ message: 'User and valid item are required.' });
     }
 
-    const { productId, size, price, color, quantity } = item;
-// console.log(item,"item")
-    if (
-      !productId ||
-      !size ||
-      price === undefined ||
-      quantity === undefined
-     
-    ) {
-      return res.status(400).json({ message: 'Item must have productId, size, price, quantity, and color (array).' });
+    const {
+      productId,
+      size,
+      price,
+      color = [],
+      flavor = [],
+      category = '',
+      quantity,
+      discount = 0,
+      productName = ''
+    } = item;
+
+    if (!productId || !size || price === undefined || quantity === undefined) {
+      return res.status(400).json({ message: 'Missing required item fields.' });
     }
 
-    // Find cart by userId
+    const trimmedFlavor = Array.isArray(flavor)
+      ? flavor[0]?.trim() || ''
+      : flavor?.trim() || '';
+
+    const sortedColor = [...color].sort();
+    const trimmedCategory = category?.trim() || '';
+    const trimmedProductName = productName?.trim() || '';
+
     let cart = await cartModel.findOne({ userId });
 
     if (!cart) {
-      // Create new cart with valid item (quantity > 0)
       if (quantity <= 0) {
         return res.status(400).json({ error: 'Cannot add item with non-positive quantity.' });
       }
@@ -52,17 +197,15 @@ const updateCart = async (req, res) => {
       cart = new cartModel({
         userId,
         items: [{
-          productId,
+          productId: new mongoose.Types.ObjectId(getProductIdString(productId)),
           quantity,
           size,
           price,
-          color: [...color].sort(),
-          flavor: Array.isArray(item.flavor)
-  ? item.flavor[0]?.trim() || ''
-  : item.flavor?.trim() ,
-          category: item.category?.trim() || '',
-          discount: item.discount || 0,
-          productName: item.productName?.trim() || ''
+          color: sortedColor,
+          flavor: trimmedFlavor,
+          category: trimmedCategory,
+          discount,
+          productName: trimmedProductName
         }]
       });
 
@@ -70,21 +213,23 @@ const updateCart = async (req, res) => {
       return res.status(201).json({ message: 'New cart created with item.', cart });
     }
 
-    // Cart exists — try to update existing item
-const trimmedFlavor = Array.isArray(item.flavor)
-  ? item.flavor[0]?.trim() || ''
-  : item.flavor?.trim() || '';
-    const sortedColor = [...color].sort();
+    // Cart exists — find matching item
+  const index = cart.items.findIndex(existingItem => {
+  const existingId = getProductIdString(existingItem.productId);
+  const incomingId = getProductIdString(productId);
 
-    const index = cart.items.findIndex(existingItem =>
-      existingItem.productId === productId &&
-      existingItem.size === size &&
-      arraysEqual(existingItem.color, sortedColor) &&
-      (existingItem.flavor?.trim() || '') === trimmedFlavor
-    );
+  const matchProductId = existingId === incomingId;
+  const matchSize = existingItem.size === size;
+  const matchColor = color.length > 0 ? arraysEqual(existingItem.color, sortedColor) : true;
+  const matchFlavor = (existingItem.flavor?.trim() || '') === trimmedFlavor;
+  const matchCategory = trimmedCategory ? (existingItem.category?.trim() === trimmedCategory) : true;
+
+  return matchProductId && matchSize && matchColor && matchFlavor && matchCategory;
+});
+
 
     if (index !== -1) {
-      // Item exists — update quantity and price
+      // Item matched — update quantity and price
       cart.items[index].quantity += quantity;
       cart.items[index].price = price;
 
@@ -92,21 +237,21 @@ const trimmedFlavor = Array.isArray(item.flavor)
         cart.items.splice(index, 1); // Remove item
       }
     } else if (quantity > 0) {
-      // New item — add to cart
+      // New item
       cart.items.push({
-        productId,
+        productId: new mongoose.Types.ObjectId(getProductIdString(productId)),
         quantity,
         size,
         price,
         color: sortedColor,
         flavor: trimmedFlavor,
-        category: item.category?.trim() || '',
-        discount: item.discount || 0,
-        productName: item.productName?.trim() || ''
+        category: trimmedCategory,
+        discount,
+        productName: trimmedProductName
       });
     }
 
-    // Delete cart if now empty
+    // If cart becomes empty
     if (cart.items.length === 0) {
       await cartModel.deleteOne({ userId });
       return res.status(200).json({ message: 'Cart was empty and has been deleted.' });
@@ -120,9 +265,6 @@ const trimmedFlavor = Array.isArray(item.flavor)
     return res.status(500).json({ error: 'Server error updating cart.' });
   }
 };
-
-
-
 
 
 // const getUserCart = async (req, res) => {
@@ -166,7 +308,15 @@ const getUserCart = async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized: user not authenticated.' });
     }
 
-    const cart = await cartModel.findOne({ userId }).sort({ createdAt: -1 });
+    // const cart = await cartModel.findOne({ userId }).sort({ createdAt: -1 });
+    const cart = await cartModel.findOne({ userId })
+  .populate({
+    path: 'items.productId',
+    select: 'productImages' // choose what to include
+  })
+  .sort({ createdAt: -1 });
+
+    // console.log(cart,"cartttttttttttt");
 
     if (!cart || cart.items.length === 0) {
       return res.status(404).json({ message: 'No items found in cart.' });
@@ -184,7 +334,7 @@ const getUserCart = async (req, res) => {
 
 export default {
   updateCart,
-  getUserCart 
+  getUserCart
 }
 
 
