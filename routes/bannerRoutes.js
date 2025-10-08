@@ -1,7 +1,8 @@
+// routes/bannerRoutes.js
 import express from 'express';
 const Bannerrouter = express.Router();
+import bannerController from '../controllers/bannerController.js';
 import multer from 'multer';
-import { uploadBanner, editBanner } from '../controllers/bannerController.js';
 
 // Use disk storage to store temporarily before uploading to Cloudinary
 const storage = multer.diskStorage({
@@ -15,9 +16,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-Bannerrouter.post('/banner', upload.single('bannerImage'), uploadBanner);
-Bannerrouter.put('/banner/:id', upload.single('bannerImage'), editBanner);
+// routes
+Bannerrouter.get('/getAll', bannerController.getAllBanners);
+Bannerrouter.post('/create', upload.single('bannerImage'), bannerController.uploadBanner);
+Bannerrouter.put('/update/:id', upload.single('bannerImage'), bannerController.editBanner);
+Bannerrouter.delete('/delete/:id', bannerController.deleteBanner);
 
 export default Bannerrouter;
-
-

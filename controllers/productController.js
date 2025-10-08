@@ -202,10 +202,27 @@ const productGetAll = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const itemsPerPage = parseInt(req.query.itemsPerPage) || 10;
+    const sortBy = req.query.sort || 'latest';
     const skip = itemsPerPage * (page - 1);
 
+    let sortQuery = {};
+    switch (sortBy) {
+      case 'oldest':
+        sortQuery = { createdAt: 1 };
+        break;
+      case 'a-z':
+        sortQuery = { productName: 1 };
+        break;
+      case 'z-a':
+        sortQuery = { productName: -1 };
+        break;
+      case 'latest':
+      default:
+        sortQuery = { createdAt: -1 };
+    }
+
     const [data, totalProducts] = await Promise.all([
-      productModel.find().skip(skip).limit(itemsPerPage).lean().exec(),
+      productModel.find().sort(sortQuery).skip(skip).limit(itemsPerPage).lean().exec(),
       productModel.countDocuments().exec()
     ]);
 
