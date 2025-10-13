@@ -172,7 +172,8 @@ const updateCart = async (req, res) => {
       category = '',
       quantity,
       discount = 0,
-      productName = ''
+      productName = '',
+      productBrand = '',
     } = item;
 
     if (!productId || !size || price === undefined || quantity === undefined) {
@@ -186,6 +187,7 @@ const updateCart = async (req, res) => {
     const sortedColor = [...color].sort();
     const trimmedCategory = category?.trim() || '';
     const trimmedProductName = productName?.trim() || '';
+    const trimmedProductBrand = productBrand?.trim() || '';
 
     let cart = await cartModel.findOne({ userId });
 
@@ -205,7 +207,8 @@ const updateCart = async (req, res) => {
           flavor: trimmedFlavor,
           category: trimmedCategory,
           discount,
-          productName: trimmedProductName
+          productName: trimmedProductName,
+          productBrand: trimmedProductBrand
         }]
       });
 
@@ -214,18 +217,18 @@ const updateCart = async (req, res) => {
     }
 
     // Cart exists — find matching item
-  const index = cart.items.findIndex(existingItem => {
-  const existingId = getProductIdString(existingItem.productId);
-  const incomingId = getProductIdString(productId);
+    const index = cart.items.findIndex(existingItem => {
+      const existingId = getProductIdString(existingItem.productId);
+      const incomingId = getProductIdString(productId);
 
-  const matchProductId = existingId === incomingId;
-  const matchSize = existingItem.size === size;
-  const matchColor = color.length > 0 ? arraysEqual(existingItem.color, sortedColor) : true;
-  const matchFlavor = (existingItem.flavor?.trim() || '') === trimmedFlavor;
-  const matchCategory = trimmedCategory ? (existingItem.category?.trim() === trimmedCategory) : true;
+      const matchProductId = existingId === incomingId;
+      const matchSize = existingItem.size === size;
+      const matchColor = color.length > 0 ? arraysEqual(existingItem.color, sortedColor) : true;
+      const matchFlavor = (existingItem.flavor?.trim() || '') === trimmedFlavor;
+      const matchCategory = trimmedCategory ? (existingItem.category?.trim() === trimmedCategory) : true;
 
-  return matchProductId && matchSize && matchColor && matchFlavor && matchCategory;
-});
+      return matchProductId && matchSize && matchColor && matchFlavor && matchCategory;
+    });
 
 
     if (index !== -1) {
@@ -247,7 +250,8 @@ const updateCart = async (req, res) => {
         flavor: trimmedFlavor,
         category: trimmedCategory,
         discount,
-        productName: trimmedProductName
+        productName: trimmedProductName,
+        productBrand: trimmedProductBrand
       });
     }
 
@@ -310,11 +314,11 @@ const getUserCart = async (req, res) => {
 
     // const cart = await cartModel.findOne({ userId }).sort({ createdAt: -1 });
     const cart = await cartModel.findOne({ userId })
-  .populate({
-    path: 'items.productId',
-    select: 'productImages' // choose what to include
-  })
-  .sort({ createdAt: -1 });
+      .populate({
+        path: 'items.productId',
+        select: 'productImages' // choose what to include
+      })
+      .sort({ createdAt: -1 });
 
     // console.log(cart,"cartttttttttttt");
 

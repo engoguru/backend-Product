@@ -43,7 +43,12 @@ const cartSchema = new mongoose.Schema({
       productName: {
         type: String,
         trim: true
-      }
+      },
+      productBrand: {
+        type: String,
+        trim: true,
+      },
+
     }
   ]
 }, { timestamps: true });
